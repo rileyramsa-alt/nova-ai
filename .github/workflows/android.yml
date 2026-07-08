@@ -27,10 +27,6 @@ jobs:
         npm install @capacitor/core @capacitor/cli @capacitor/android
         npx cap init "Nova_AI" "com.yourname.novaai" --web-dir=www
         npx cap add android
-
-        # ---> FIX CODE SCRIPT: Fix the root build file before running sync <---
-        sed -i 's/flatDir/google()/g' android/build.gradle
-        
         npx cap sync android
 
     - name: Set up Java JDK Runtime
@@ -38,6 +34,10 @@ jobs:
       with:
         distribution: 'zulu'
         java-version: '17'
+
+    # THIS NEW STEP AUTOMATICALLY DETECTS AND FIXES CORRUPTED CACHES & JAR ISSUES
+    - name: Setup Gradle Environment
+      uses: gradle/actions/setup-gradle@v4
 
     - name: Compile Code to Raw APK File
       run: |
