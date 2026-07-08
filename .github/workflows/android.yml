@@ -25,10 +25,9 @@ jobs:
     - name: Inject Native Android Wrapper Libraries
       run: |
         npm install @capacitor/core @capacitor/cli
-        npx cap init "Nova AI" "com.yourname.novaai" --web-dir=www
+        npx cap init "Nova_AI" "com.yourname.novaai" --web-dir=www
         npm install @capacitor/android
         npx cap add android
-        sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-feature android:name="android.hardware.camera" />' android/app/src/main/AndroidManifest.xml
         npx cap sync android
 
     - name: Set up Java JDK Runtime
