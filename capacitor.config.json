@@ -1,0 +1,6 @@
+{
+  "appId": "com.yourname.novaai",
+  "appName": "Nova AI",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}
