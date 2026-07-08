@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Nova AI - Multilingual Interface</title>
+    <title>Nova AI</title>
     <!-- Load Google MediaPipe Hand Tracking Libraries directly from CDN -->
     <script src="https://jsdelivr.net" crossorigin="anonymous"></script>
     <style>
@@ -32,7 +32,6 @@
 
     <div id="app-hud">
         <h1>Nova AI Multilingual Matrix</h1>
-        
         <div class="module">
             <strong>Target Translation Language:</strong><br><br>
             <select id="language-selector">
@@ -43,11 +42,9 @@
                 <option value="Arabic">Arabic</option>
             </select>
         </div>
-
         <div class="module">
             <strong>Nova AI Output:</strong> <span id="ai-response">Raise your hand to connect to cloud matrix...</span>
         </div>
-        
         <div class="module" style="border-color: #ffaa00;">
             <strong>Document Queue (Will Be Translated on Print):</strong><br><br>
             <textarea id="document-box" rows="2" placeholder="Type English text here. Making a mid-air pinch gesture will translate and print it..."></textarea>
@@ -61,8 +58,7 @@
     </div>
 
     <script>
-        // REPLACE WITH YOUR COPIED API KEY
-        const GROQ_API_KEY = "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";
+        const GROQ_API_KEY = "gsk_YOUR_KEY_HERE";
 
         const video = document.getElementById("webcam");
         const canvasElement = document.getElementById("output_canvas");
@@ -105,19 +101,16 @@
                     const positions = results.landmarks;
                     drawTrackerSkeleton(positions);
                     
-                    const wrist = positions;
-                    const thumbTip = positions;
-                    const indexTip = positions;
+                    const wrist = positions[0];
+                    const thumbTip = positions[4];
+                    const indexTip = positions[8];
 
-                    // PINCH GESTURE: Translates text and prints to native document printer
                     const pinchGap = Math.hypot(indexTip.x - thumbTip.x, indexTip.y - thumbTip.y);
                     if (pinchGap < 0.03) {
                         translateAndPrintDocument();
                     }
-                    
-                    // OPEN PALM GESTURE: Simple greet check
                     if (indexTip.y < wrist.y - 0.45) {
-                        queryGeminiSystem("Say hello to the user in the language currently selected: " + languageSelector.value);
+                        queryGroqSystem("Greet the user in the language currently selected: " + languageSelector.value);
                     }
                 }
             }
@@ -133,7 +126,6 @@
             }
         }
 
-        // CORES FOR LIVE TRANSLATION PRINTING
         async function translateAndPrintDocument() {
             const now = Date.now();
             if (now - controlCooldown < 10000) return;
@@ -146,40 +138,46 @@
             aiResponse.innerText = `Nova AI: Translating document matrix to ${targetLang}...`;
 
             try {
-                const endpoint = `https://googleapis.com{GEMINI_API_KEY}`;
-                const res = await fetch(endpoint, {
+                const res = await fetch("https://groq.com", {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${GROQ_API_KEY}`
+                    },
                     body: JSON.stringify({
-                        contents: [{ parts: [{ text: `Translate the following text exactly into ${targetLang}. Return ONLY the translation, no commentary: "${textToTranslate}"` }] }]
+                        model: "llama3-8b-8192",
+                        messages: [{ role: "user", content: `Translate this exact text into ${targetLang}. Output ONLY the final translated text, do not include introduction or context: "${textToTranslate}"` }]
                     })
                 });
                 const data = await res.json();
-                const translatedText = data.candidates.content.parts.text;
+                const translatedText = data.choices[0].message.content;
 
-                // Push translated payload directly into printable container
                 paperContentTarget.innerText = translatedText;
                 aiResponse.innerText = "Nova AI: Spooling translated document to printing hardware...";
-                
                 setTimeout(() => { window.print(); }, 500);
             } catch (err) {
                 aiResponse.innerText = "Nova AI: Translation pipeline error.";
             }
         }
 
-        async function queryGeminiSystem(promptText) {
+        async function queryGroqSystem(promptText) {
             const now = Date.now();
             if (now - controlCooldown < 6000) return;
             controlCooldown = now;
             try {
-                const endpoint = `https://googleapis.com{GEMINI_API_KEY}`;
-                const res = await fetch(endpoint, {
+                const res = await fetch("https://groq.com", {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${GROQ_API_KEY}`
+                    },
+                    body: JSON.stringify({
+                        model: "llama3-8b-8192",
+                        messages: [{ role: "user", content: promptText }]
+                    })
                 });
                 const data = await res.json();
-                aiResponse.innerText = data.candidates.content.parts.text;
+                aiResponse.innerText = data.choices[0].message.content;
             } catch (err) {
                 aiResponse.innerText = "Network link failure.";
             }
