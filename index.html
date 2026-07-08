@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Nova AI - Multilingual Interface</title>
+    <!-- Load Google MediaPipe Hand Tracking Libraries directly from CDN -->
+    <script src="https://jsdelivr.net" crossorigin="anonymous"></script>
+    <style>
+        body { margin: 0; background: #04060f; color: #fff; font-family: monospace; overflow: hidden; }
+        #camera-layer { position: absolute; width: 100vw; height: 100vh; transform: scaleX(-1); top: 0; left: 0; z-index: 1; }
+        video { width: 100%; height: 100%; object-fit: cover; opacity: 0.15; }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        #app-hud { position: absolute; top: 8%; left: 5%; width: 90%; z-index: 2; background: rgba(8,12,24,0.9); padding: 18px; border: 2px solid #00f3ff; border-radius: 12px; }
+        h1 { color: #00f3ff; font-size: 18px; letter-spacing: 2px; margin: 0 0 10px 0; text-transform: uppercase; }
+        .module { background: #0f1626; padding: 10px; margin: 8px 0; border-left: 4px solid #00f3ff; border-radius: 4px; }
+        textarea { width: 94%; background: #050811; color: #fff; border: 1px solid #ffaa00; padding: 8px; border-radius: 6px; font-family: monospace; }
+        select { background: #050811; color: #00f3ff; border: 1px solid #00f3ff; padding: 5px; border-radius: 4px; font-family: monospace; margin-bottom: 10px; }
+        #paper-print-sandbox { display: none; background: white; color: black; padding: 30px; }
+        @media print {
+            #camera-layer, #app-hud { display: none !important; }
+            #paper-print-sandbox { display: block !important; position: absolute; top: 0; left: 0; width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="camera-layer">
+        <video id="webcam" autoplay playsinline muted></video>
+        <canvas id="output_canvas"></canvas>
+    </div>
+
+    <div id="app-hud">
+        <h1>Nova AI Multilingual Matrix</h1>
+        
+        <div class="module">
+            <strong>Target Translation Language:</strong><br><br>
+            <select id="language-selector">
+                <option value="Spanish">Spanish</option>
+                <option value="French">French</option>
+                <option value="German">German</option>
+                <option value="Japanese">Japanese</option>
+                <option value="Arabic">Arabic</option>
+            </select>
+        </div>
+
+        <div class="module">
+            <strong>Nova AI Output:</strong> <span id="ai-response">Raise your hand to connect to cloud matrix...</span>
+        </div>
+        
+        <div class="module" style="border-color: #ffaa00;">
+            <strong>Document Queue (Will Be Translated on Print):</strong><br><br>
+            <textarea id="document-box" rows="2" placeholder="Type English text here. Making a mid-air pinch gesture will translate and print it..."></textarea>
+        </div>
+    </div>
+
+    <div id="paper-print-sandbox">
+        <h2 style="text-align: center; text-transform: uppercase;">Nova AI - Translated Document</h2>
+        <hr>
+        <p id="paper-content-target"></p>
+    </div>
+
+    <script>
+        // REPLACE WITH YOUR COPIED API KEY
+        const GEMINI_API_KEY = "PASTE_YOUR_GEMINI_API_KEY_HERE";
+
+        const video = document.getElementById("webcam");
+        const canvasElement = document.getElementById("output_canvas");
+        const canvasCtx = canvasElement.getContext("2d");
+        const aiResponse = document.getElementById("ai-response");
+        const documentBox = document.getElementById("document-box");
+        const paperContentTarget = document.getElementById("paper-content-target");
+        const languageSelector = document.getElementById("language-selector");
+
+        let handLandmarker = undefined;
+        let controlCooldown = 0;
+
+        async function runMobileApp() {
+            const vision = await FilesetResolver.forVisionTasks("https://jsdelivr.net");
+            handLandmarker = await HandLandmarker.createFromOptions(vision, {
+                baseOptions: {
+                    modelAssetPath: `https://googleapis.com`,
+                    delegate: "GPU"
+                },
+                runningMode: "VIDEO",
+                numHands: 1
+            });
+            launchCameraEngine();
+        }
+
+        function launchCameraEngine() {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: 640, height: 480 } }).then((stream) => {
+                video.srcObject = stream;
+                video.addEventListener("loadeddata", mobileTrackingLoop);
+            });
+        }
+
+        async function mobileTrackingLoop() {
+            canvasElement.width = video.videoWidth;
+            canvasElement.height = video.videoHeight;
+            if (handLandmarker) {
+                const results = handLandmarker.detectForVideo(video, performance.now());
+                canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+                if (results.landmarks && results.landmarks.length > 0) {
+                    const positions = results.landmarks;
+                    drawTrackerSkeleton(positions);
+                    
+                    const wrist = positions;
+                    const thumbTip = positions;
+                    const indexTip = positions;
+
+                    // PINCH GESTURE: Translates text and prints to native document printer
+                    const pinchGap = Math.hypot(indexTip.x - thumbTip.x, indexTip.y - thumbTip.y);
+                    if (pinchGap < 0.03) {
+                        translateAndPrintDocument();
+                    }
+                    
+                    // OPEN PALM GESTURE: Simple greet check
+                    if (indexTip.y < wrist.y - 0.45) {
+                        queryGeminiSystem("Say hello to the user in the language currently selected: " + languageSelector.value);
+                    }
+                }
+            }
+            window.requestAnimationFrame(mobileTrackingLoop);
+        }
+
+        function drawTrackerSkeleton(positions) {
+            canvasCtx.fillStyle = "#00f3ff";
+            for (const p of positions) {
+                canvasCtx.beginPath();
+                canvasCtx.arc(p.x * canvasElement.width, p.y * canvasElement.height, 4, 0, 2 * Math.PI);
+                canvasCtx.fill();
+            }
+        }
+
+        // CORES FOR LIVE TRANSLATION PRINTING
+        async function translateAndPrintDocument() {
+            const now = Date.now();
+            if (now - controlCooldown < 10000) return;
+            controlCooldown = now;
+
+            const textToTranslate = documentBox.value.trim();
+            const targetLang = languageSelector.value;
+            if (!textToTranslate) return;
+
+            aiResponse.innerText = `Nova AI: Translating document matrix to ${targetLang}...`;
+
+            try {
+                const endpoint = `https://googleapis.com{GEMINI_API_KEY}`;
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: `Translate the following text exactly into ${targetLang}. Return ONLY the translation, no commentary: "${textToTranslate}"` }] }]
+                    })
+                });
+                const data = await res.json();
+                const translatedText = data.candidates.content.parts.text;
+
+                // Push translated payload directly into printable container
+                paperContentTarget.innerText = translatedText;
+                aiResponse.innerText = "Nova AI: Spooling translated document to printing hardware...";
+                
+                setTimeout(() => { window.print(); }, 500);
+            } catch (err) {
+                aiResponse.innerText = "Nova AI: Translation pipeline error.";
+            }
+        }
+
+        async function queryGeminiSystem(promptText) {
+            const now = Date.now();
+            if (now - controlCooldown < 6000) return;
+            controlCooldown = now;
+            try {
+                const endpoint = `https://googleapis.com{GEMINI_API_KEY}`;
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
+                });
+                const data = await res.json();
+                aiResponse.innerText = data.candidates.content.parts.text;
+            } catch (err) {
+                aiResponse.innerText = "Network link failure.";
+            }
+        }
+        runMobileApp();
+    </script>
+</body>
+</html>
