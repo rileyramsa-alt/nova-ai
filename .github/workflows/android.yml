@@ -24,10 +24,13 @@ jobs:
 
     - name: Inject Native Android Wrapper Libraries
       run: |
-        npm install @capacitor/core @capacitor/cli
+        npm install @capacitor/core @capacitor/cli @capacitor/android
         npx cap init "Nova_AI" "com.yourname.novaai" --web-dir=www
-        npm install @capacitor/android
         npx cap add android
+
+        # ---> FIX CODE SCRIPT: Fix the root build file before running sync <---
+        sed -i 's/flatDir/google()/g' android/build.gradle
+        
         npx cap sync android
 
     - name: Set up Java JDK Runtime
@@ -40,8 +43,7 @@ jobs:
       run: |
         cd android
         chmod +x gradlew
-        ./gradlew wrapper --gradle-version 8.5
-        ./gradlew assembleDebug
+        ./gradlew assembleDebug --no-daemon
 
     - name: Upload Finished APK for Download
       uses: actions/upload-artifact@v4
