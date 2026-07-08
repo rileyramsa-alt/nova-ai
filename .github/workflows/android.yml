@@ -27,6 +27,11 @@ jobs:
         npm install @capacitor/core @capacitor/cli @capacitor/android
         npx cap init "Nova_AI" "com.yourname.novaai" --web-dir=www
         npx cap add android
+
+        # ---> THE ULTIMATE PATCH: Upgrade the plugin version directly inside the generated template <---
+        sed -i 's/com.android.tools.build:gradle:8.2.1/com.android.tools.build:gradle:8.4.2/g' android/build.gradle || true
+        sed -i 's/com.android.tools.build:gradle:8.0.0/com.android.tools.build:gradle:8.4.2/g' android/build.gradle || true
+
         npx cap sync android
 
     - name: Set up Java JDK Runtime
@@ -34,10 +39,6 @@ jobs:
       with:
         distribution: 'zulu'
         java-version: '17'
-
-    # THIS NEW STEP AUTOMATICALLY DETECTS AND FIXES CORRUPTED CACHES & JAR ISSUES
-    - name: Setup Gradle Environment
-      uses: gradle/actions/setup-gradle@v4
 
     - name: Compile Code to Raw APK File
       run: |
@@ -50,4 +51,3 @@ jobs:
       with:
         name: nova-ai-apk
         path: android/app/build/outputs/apk/debug/app-debug.apk
-
