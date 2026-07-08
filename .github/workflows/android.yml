@@ -1,0 +1,50 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Source Code
+      uses: actions/checkout@v4
+
+    - name: Install Node.js Environment
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18
+
+    - name: Structure App Directory
+      run: |
+        mkdir www
+        cp index.html www/
+
+    - name: Inject Native Android Wrapper Libraries
+      run: |
+        npm install @capacitor/core @capacitor/cli
+        npx cap init "Nova AI" "com.yourname.novaai" --web-dir=www
+        npm install @capacitor/android
+        npx cap add android
+        sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-feature android:name="android.hardware.camera" />' android/app/src/main/AndroidManifest.xml
+        npx cap sync android
+
+    - name: Set up Java JDK Runtime
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+
+    - name: Compile Code to Raw APK File
+      run: |
+        cd android
+        chmod +x gradlew
+        ./gradlew assembleDebug
+
+    - name: Upload Finished APK for Download
+      uses: actions/upload-artifact@v4
+      with:
+        name: nova-ai-apk
+        path: android/app/build/outputs/apk/debug/app-debug.apk
