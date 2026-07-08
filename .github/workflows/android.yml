@@ -1,53 +1,13 @@
-name: Build Android APK
-
-on:
-  push:
-    branches: [ main ]
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout Source Code
-      uses: actions/checkout@v4
-
-    - name: Install Node.js Environment
-      uses: actions/setup-node@v4
-      with:
-        node-version: 18
-
-    - name: Structure App Directory
-      run: |
-        mkdir www
-        cp index.html www/
-
-    - name: Inject Native Android Wrapper Libraries
-      run: |
-        npm install @capacitor/core @capacitor/cli @capacitor/android
-        npx cap init "Nova_AI" "com.yourname.novaai" --web-dir=www
-        npx cap add android
-
-        # ---> THE ULTIMATE PATCH: Upgrade the plugin version directly inside the generated template <---
-        sed -i 's/com.android.tools.build:gradle:8.2.1/com.android.tools.build:gradle:8.4.2/g' android/build.gradle || true
-        sed -i 's/com.android.tools.build:gradle:8.0.0/com.android.tools.build:gradle:8.4.2/g' android/build.gradle || true
-
-        npx cap sync android
-
-    - name: Set up Java JDK Runtime
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'zulu'
-        java-version: '17'
-
-    - name: Compile Code to Raw APK File
-      run: |
-        cd android
-        chmod +x gradlew
-        ./gradlew assembleDebug --no-daemon
-
-    - name: Upload Finished APK for Download
-      uses: actions/upload-artifact@v4
-      with:
-        name: nova-ai-apk
-        path: android/app/build/outputs/apk/debug/app-debug.apk
+- name: Android APK builder
+  # You may pin to the exact commit or the version.
+  # uses: kevingopalan/action_android_build@48f8ff1d1aeb7cbe91406123fe25b7ff32bef57f
+  uses: kevingopalan/action_android_build@v1
+  with:
+    # Github secret token to allow automated publishing of APK to release.
+    GITHUB_TOKEN: # optional
+    # CI token
+    CI_TOKEN: # optional
+    # App Name
+    APP_NAME: # optional
+    # Package Type
+    TYPEPACKAGE: # optional
