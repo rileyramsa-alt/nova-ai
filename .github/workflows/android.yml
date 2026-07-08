@@ -40,14 +40,7 @@ jobs:
       run: |
         cd android
         chmod +x gradlew
-            - name: Build Android App
-      run: |
-        cd android
-        chmod +x gradlew
-        
-        # This line forces the environment to upgrade and fixes the jar error
         ./gradlew wrapper --gradle-version 8.5
-        
         ./gradlew assembleDebug
 
     - name: Upload Finished APK for Download
@@ -56,10 +49,3 @@ jobs:
         name: nova-ai-apk
         path: android/app/build/outputs/apk/debug/app-debug.apk
 
-        ./gradlew assembleDebug
-
-    - name: Upload Finished APK for Download
-      uses: actions/upload-artifact@v4
-      with:
-        name: nova-ai-apk
-        path: android/app/build/outputs/apk/debug/app-debug.apk
